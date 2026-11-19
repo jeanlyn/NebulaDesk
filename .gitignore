@@ -1,6 +1,8 @@
 # Compiled binaries & macOS app bundle
 /nebuladesk
 /NebulaDesk.app/
+/build/
+/release-assets/
 *.exe
 *.app/
 

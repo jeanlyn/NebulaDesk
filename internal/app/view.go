@@ -100,6 +100,9 @@ func (a *App) applyTheme(c *ui.Context) {
 	c.SetTheme(&th)
 }
 
+// brandIcon is the NebulaDesk constellation "N" vector emblem rendered in the top toolbar.
+var brandIcon = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="6" x2="14" y2="9.5"/><line x1="14" y1="9.5" x2="18" y2="6"/><line x1="14" y1="9.5" x2="18" y2="18"/><line x1="18" y1="6" x2="18" y2="18"/><circle cx="6" cy="6" r="2" fill="currentColor"/><circle cx="6" cy="18" r="2" fill="currentColor"/><circle cx="14" cy="9.5" r="1.6" fill="currentColor"/><circle cx="18" cy="6" r="2" fill="currentColor"/><circle cx="18" cy="18" r="2" fill="currentColor"/></svg>`))
+
 func (a *App) renderTopToolbar(c *ui.Context, t *ui.Theme) {
 	tr := a.Tr()
 	bar := c.TitleBar()
@@ -121,11 +124,12 @@ func (a *App) renderTopToolbar(c *ui.Context, t *ui.Theme) {
 		Children(func() {
 			// Brand logo + title
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Size(22, 22).Radius(6).
-					Gradient(ui.Hex("#6366f1"), ui.Hex("#06b6d4"), 135).
+				ui.Box(c).Size(24, 24).Radius(6).
+					Gradient(ui.Hex("#1e2959"), ui.Hex("#3b2896"), 135).
+					Border(1, ui.Hex("#38e8ff").Alpha(0.45)).
 					Center().
 					Children(func() {
-						ui.Text(c, "N").Bold().FontSize(12).TextColor(ui.RGB(255, 255, 255))
+						ui.Icon(c, brandIcon).Size(16, 16).TextColor(ui.Hex("#67e8f9"))
 					})
 				ui.Text(c, "NebulaDesk").Bold().FontSize(13.5)
 			})
