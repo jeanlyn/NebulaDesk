@@ -3,8 +3,6 @@
   "slug": "nebuladesk",
   "identifier": "io.github.jeanlyn.nebuladesk",
   "version": "0.1.0",
-  "icon": "resources/icon.png",
-  "updates": {
-    "github": "jeanlyn/NebulaDesk"
-  }
+  "out": "build",
+  "icon": "resources/icon.png"
 }
