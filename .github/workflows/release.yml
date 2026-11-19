@@ -212,3 +212,10 @@ jobs:
             - **macOS (Apple Silicon / Intel)**: `.dmg` / `.app.zip`
             - **Windows (x64)**: `.exe` / `.zip`
             - **Linux (x64 / ARM64)**: `.tar.gz` / `.deb`
+
+            ### macOS Gatekeeper Note
+            If macOS shows *"Apple could not verify 'NebulaDesk' is free of malware"*, drag `NebulaDesk.app` to `/Applications` and run:
+            ```bash
+            xattr -cr /Applications/NebulaDesk.app
+            ```
+            Or open **System Settings → Privacy & Security** (**系统设置 → 隐私与安全性**) and click **Open Anyway** (**仍要打开**).
