@@ -1,0 +1,17 @@
+# Compiled binaries & macOS app bundle
+/nebuladesk
+/NebulaDesk.app/
+*.exe
+*.app/
+
+# Test & coverage outputs
+*.test
+*.out
+coverage.txt
+snapshots/
+
+# OS & editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
