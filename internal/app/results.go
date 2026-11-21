@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -10,6 +11,9 @@ import (
 	"nebula_client/internal/graphview"
 	"nebula_client/internal/model"
 )
+
+// magnifierIcon is a crisp zoom-in magnifying glass vector icon for inspecting truncated table cells.
+var magnifierIcon = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`))
 
 func (a *App) renderResultsPane(c *ui.Context, t *ui.Theme) {
 	tr := a.Tr()
@@ -149,10 +153,26 @@ func (a *App) renderTableResult(c *ui.Context, t *ui.Theme, tab *QueryTab) {
 
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		// Table filter bar
-		ui.Row(c).FillWidth().Padding(6, 10).Gap(8).Background(t.Surface).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
+		ui.Row(c).FillWidth().Padding(6, 10).Gap(8).AlignItems(ui.Center).Background(t.Surface).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
 			ui.SearchField(c.Key("tbl-filter-"+tab.ID), &tab.TableFilter).Placeholder(tr.FilterRows).Width(240)
 			ui.Text(c, fmt.Sprintf(tr.ShowingRows, len(rowIdx), len(qr.Rows))).FontSize(11.5).TextColor(t.TextMuted)
 			ui.Spacer(c)
+			if tab.SelectedRow >= 0 && tab.SelectedRow < len(rowIdx) {
+				inspectBtn := ui.Row(c.Key("tbl-inspect-row-"+tab.ID)).
+					Padding(3, 8).Gap(5).Radius(5).AlignItems(ui.Center).
+					Background(t.Background).Border(1, t.Border).Cursor(ui.CursorPointer).
+					Tooltip(tr.InspectCellTip)
+				if inspectBtn.Hovered() {
+					inspectBtn.Background(t.SurfaceHover).Border(1, t.Accent.Alpha(0.5))
+				}
+				inspectBtn.Children(func() {
+					ui.Icon(c, magnifierIcon).Size(12, 12).TextColor(t.Accent)
+					ui.Text(c, tr.InspectRowBtn).FontSize(11.5).SingleLine()
+				})
+				if inspectBtn.Clicked() {
+					a.OpenCellPreview(tab, tab.SelectedRow, -1)
+				}
+			}
 			if ui.Button(c, tr.CopyCSVBtn).Padding(3, 8).Clicked() {
 				c.WriteClipboard(FormatResultCSV(qr))
 				a.ToastQueue = "CSV copied"
@@ -161,11 +181,17 @@ func (a *App) renderTableResult(c *ui.Context, t *ui.Theme, tab *QueryTab) {
 
 		cols := make([]ui.TableColumn, 0, len(qr.Columns)+1)
 		cols = append(cols, ui.TableColumn{Title: "#", RowHeader: true, Width: 46, Fixed: true, Align: ui.End})
-		for _, col := range qr.Columns {
+		for colIdx, col := range qr.Columns {
+			w := estimateTableColWidth(col, qr, rowIdx, colIdx)
+			// Let the last column flex to fill remaining width cleanly when table is wider
+			if colIdx == len(qr.Columns)-1 {
+				w = 0
+			}
 			cols = append(cols, ui.TableColumn{
 				Title:    col,
 				ID:       col,
 				Sortable: true,
+				Width:    w,
 				MinWidth: 90,
 			})
 		}
@@ -178,6 +204,9 @@ func (a *App) renderTableResult(c *ui.Context, t *ui.Theme, tab *QueryTab) {
 			r := qr.Rows[rowIdx[row]]
 			if col > 0 && col-1 < len(r) {
 				val := r[col-1]
+				if m.Item(tr.InspectCellMenu).Chosen() {
+					a.OpenCellPreview(tab, row, col-1)
+				}
 				if m.Item(tr.CopyCellMenu).Chosen() {
 					c.WriteClipboard(val)
 					a.ToastQueue = "Cell copied"
@@ -202,7 +231,7 @@ func (a *App) renderTableResult(c *ui.Context, t *ui.Theme, tab *QueryTab) {
 			}
 		}
 
-		tab.TableState.RowHeight = 28
+		tab.TableState.RowHeight = 30
 		ui.Table(c.Key("result-table-"+tab.ID), &tab.TableState, cols, len(rowIdx), func(row, col int) {
 			r := qr.Rows[rowIdx[row]]
 			if col == 0 {
@@ -213,12 +242,76 @@ func (a *App) renderTableResult(c *ui.Context, t *ui.Theme, tab *QueryTab) {
 			if col-1 < len(r) {
 				val = r[col-1]
 			}
-			txt := ui.Text(c, val).FontSize(12).Font("monospace").SingleLine()
-			if val == "NULL" || val == "" {
-				txt.TextColor(t.TextMuted)
+			isEmpty := val == "NULL" || val == ""
+			isLong := utf8.RuneCountInString(val) > 16
+
+			cell := ui.Row(c.Key(fmt.Sprintf("cell-%s-%d-%d", tab.ID, rowIdx[row], col))).
+				FillWidth().AlignItems(ui.Center).Gap(4)
+			if isLong {
+				tip := val
+				if len(tip) > 420 {
+					tip = tip[:420] + "…"
+				}
+				cell.Tooltip(tip)
+			}
+			showZoom := !isEmpty && (isLong || cell.Hovered())
+
+			cell.Children(func() {
+				txt := ui.Text(c, val).FontSize(12).Font("monospace").SingleLine().Grow(1).Shrink(1)
+				if isEmpty {
+					txt.TextColor(t.TextMuted)
+				}
+				if showZoom {
+					zBtn := ui.Box(c.Key(fmt.Sprintf("zoom-%s-%d-%d", tab.ID, rowIdx[row], col))).
+						Size(20, 20).Radius(4).Center().Shrink(0).
+						Cursor(ui.CursorPointer).
+						Tooltip(tr.InspectCellTip)
+					iconCol := t.TextMuted
+					if zBtn.Hovered() {
+						zBtn.Background(t.Accent.Alpha(0.22))
+						iconCol = t.Accent
+					} else if row == tab.SelectedRow {
+						zBtn.Background(t.Background.Alpha(0.22))
+						iconCol = t.Text
+					}
+					zBtn.Children(func() {
+						ui.Icon(c, magnifierIcon).Size(12, 12).TextColor(iconCol)
+					})
+					if zBtn.Clicked() {
+						a.OpenCellPreview(tab, row, col-1)
+					}
+				}
+			})
+			if !isEmpty && cell.DoubleClicked() {
+				a.OpenCellPreview(tab, row, col-1)
 			}
 		}).Grow(1).FillWidth()
 	})
+}
+
+func estimateTableColWidth(colName string, qr *model.QueryResult, rowIdx []int, colIdx int) float32 {
+	maxRunes := utf8.RuneCountInString(colName) + 2
+	sample := len(rowIdx)
+	if sample > 30 {
+		sample = 30
+	}
+	for i := 0; i < sample; i++ {
+		r := qr.Rows[rowIdx[i]]
+		if colIdx < len(r) {
+			if n := utf8.RuneCountInString(r[colIdx]); n > maxRunes {
+				maxRunes = n
+			}
+		}
+	}
+	// ~7.2px per monospace char + padding (capped so non-last columns stay compact and leave room for wide path columns)
+	w := float32(maxRunes)*7.2 + 34
+	if w < 90 {
+		w = 90
+	}
+	if w > 220 {
+		w = 220
+	}
+	return w
 }
 
 func (a *App) renderJSONResult(c *ui.Context, t *ui.Theme, tab *QueryTab) {

@@ -203,10 +203,10 @@ jobs:
             Pure-Go, GPU-accelerated native desktop client for **NebulaGraph v3** powered by [MyGo](https://mygo.run/) (`CGO_ENABLED=0`, zero Electron / zero WebView).
 
             ### Highlights
-            - **Native GPU nGQL Editor**: Syntax highlighting, schema-aware autocompletion (`Ctrl+Space`), hover docs, multi-tab workspace, query history & snippets.
-            - **Interactive Graph Visualization**: Force-directed (2D spatial-hash O(N)), Circular, Hierarchical Tree & Grid layouts; curved parallel & `@rank` edges; multi-tag vertex rings; minimap; SVG & JSON export.
-            - **Safe Super-Node Exploration**: Strictly `LIMIT`-bounded directional expansion (`Both`, `Out →`, `← In`, `2-Hop`, configurable limit), plus live subgraph exploration from scalar table results.
-            - **Multi-View Results & Schema**: Graph / Table / JSON / `EXPLAIN` Plan views, inline index indicators on Tag/Edge properties, and **EN / 中文** language switching.
+            - **Context-Aware nGQL Autocomplete & Editor**: Smart `.` / `:` completions for Tags, Edge Types, bound variables (`v.tag.prop`, `e.prop`, `$^.`, `$-.`), 45+ built-in functions, canvas VIDs, bracket auto-closing, and rich hover docs (`Ctrl+Space` / `⌥/`).
+            - **AI nGQL Assistant (`⌘J`)**: Connect any OpenAI-compatible model (OpenAI, DeepSeek, Qwen, local Ollama, OpenRouter) with one-click **Fetch Models** & connection test; explores your graph in strict read-only mode to generate verified nGQL ready for one-click **Load & Run**.
+            - **Table Cell & Row Magnifier**: Adaptive column widths, inline magnifying glass icon, double-click/toolbar inspection modal with automatic Path & JSON formatting, full-row view, and row-by-row navigation.
+            - **Interactive Graph Visualization & Exploration**: Force-directed (2D spatial-hash O(N)), Circular, Hierarchical Tree & Grid layouts; curved parallel & `@rank` edges; strictly `LIMIT`-bounded directional expansion; SVG & JSON export; **EN / 中文** UI.
 
             ### Downloads
             - **macOS (Apple Silicon / Intel)**: `.dmg` / `.app.zip`

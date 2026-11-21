@@ -16,6 +16,8 @@ type Strings struct {
 	// Top Toolbar
 	Sidebar      string
 	Inspector    string
+	AIBtn        string
+	AITip        string
 	Disconnected string
 	SpaceLabel   string
 	RefreshTip   string
@@ -31,10 +33,11 @@ type Strings struct {
 	InspectorTip string
 
 	// Query Tab Bar
-	SaveSnippetBtn string
-	ClearBtn       string
-	NewTabTip      string
-	EditorHint     string
+	SaveSnippetBtn    string
+	ClearBtn          string
+	NewTabTip         string
+	EditorHint        string
+	CompletionKeyHint string
 
 	// Sidebar Tabs & Schema
 	TabSchema       string
@@ -86,10 +89,18 @@ type Strings struct {
 	NoPlanDesc      string
 	ExplainCurrBtn  string
 	PlanHeader      string
-	CopyCellMenu    string
-	CopyRowMenu     string
-	FocusVertexMenu string
-	ExploreVIDMenu  string
+	CopyCellMenu     string
+	CopyRowMenu      string
+	InspectCellMenu  string
+	InspectCellTip   string
+	InspectRowBtn    string
+	PreviewCellTab   string
+	PreviewRowTab    string
+	PrettyFormatLbl  string
+	PrevRowBtn       string
+	NextRowBtn       string
+	FocusVertexMenu  string
+	ExploreVIDMenu   string
 
 	// Empty Graph Overlay
 	ScalarResultTitle string
@@ -200,6 +211,48 @@ type Strings struct {
 	// Status bar
 	ReadyStatus         string
 	ShortcutHint        string
+
+	// AI ReAct nGQL Assistant & Model Settings
+	AITabTitle         string
+	AIModelBtn         string
+	AINotConfigured    string
+	AINotConfigTitle   string
+	AINotConfigDesc    string
+	AIConfigNowBtn     string
+	AIPromptHint       string
+	AIIncludeEditor    string
+	AIGenerateBtn      string
+	AIStopBtn          string
+	AIExploringStatus  string
+	AIQuickExamples    string
+	AITraceHeaderFmt   string
+	AIThoughtLabel     string
+	AIToolLabel        string
+	AIObsLabel         string
+	AIToolSchema       string
+	AIToolSampleTag    string
+	AIToolSampleEdge   string
+	AIToolVerifyQuery  string
+	AIFinalTitle       string
+	AIVerifiedBadge    string
+	AILoadBtn          string
+	AILoadRunBtn       string
+	AIReadOnlyNote     string
+	AIModalTitle       string
+	AIModalSubtitle    string
+	AIPresetsHeader    string
+	AIBaseURLLbl       string
+	AIAPIKeyLbl        string
+	AIModelNameLbl     string
+	AIMaxStepsLbl      string
+	AITempLbl          string
+	AITimeoutLbl       string
+	AITestConnBtn      string
+	AITestingBtn       string
+	AIFetchModelsBtn   string
+	AIFetchingBtn      string
+	AIModelsCountFmt   string
+	AISelectModelLbl   string
 }
 
 // Get returns the localized string table for the given language code ("zh" or "en").
@@ -216,6 +269,8 @@ var enStrings = Strings{
 
 	Sidebar:      "Sidebar",
 	Inspector:    "Inspector",
+	AIBtn:        "✦ AI",
+	AITip:        "Open AI nGQL Assistant (⌘J)",
 	Disconnected: "Disconnected",
 	SpaceLabel:   "Space:",
 	RefreshTip:   "Refresh Space Schema",
@@ -230,10 +285,11 @@ var enStrings = Strings{
 	SidebarTip:   "Toggle Schema Sidebar (⌘B)",
 	InspectorTip: "Toggle Property Inspector (⌘I)",
 
-	SaveSnippetBtn: "★ Save Snippet",
-	ClearBtn:       "Clear",
-	NewTabTip:      "New Query Tab (⌘T)",
-	EditorHint:     "Write nGQL here… (⌘Enter / Ctrl+Enter to run, Ctrl+Space for schema autocomplete)",
+	SaveSnippetBtn:    "★ Save Snippet",
+	ClearBtn:          "Clear",
+	NewTabTip:         "New Query Tab (⌘T)",
+	EditorHint:        "Write nGQL here… (⌘Enter to run • . / : auto-complete • Ctrl+Space / ⌥/ for suggestions)",
+	CompletionKeyHint: "↑↓ Select  •  ⏎/⇥ Insert  •  Esc Close",
 
 	TabSchema:       "Schema",
 	TabHistory:      "History",
@@ -283,10 +339,18 @@ var enStrings = Strings{
 	NoPlanDesc:      "Prefix any nGQL query with EXPLAIN or PROFILE to inspect NebulaGraph's operator pipeline.",
 	ExplainCurrBtn:  "EXPLAIN Current Query",
 	PlanHeader:      "Physical Execution Plan (%d operators)",
-	CopyCellMenu:    "Copy Cell Value",
-	CopyRowMenu:     "Copy Row (TSV)",
-	FocusVertexMenu: "Focus Vertex in Graph (%s)",
-	ExploreVIDMenu:  "Explore VID in Graph (1-Hop Subgraph)",
+	CopyCellMenu:     "Copy Cell Value",
+	CopyRowMenu:      "Copy Row (TSV)",
+	InspectCellMenu:  "Inspect Full Value",
+	InspectCellTip:   "Inspect full cell content",
+	InspectRowBtn:    "Inspect Row",
+	PreviewCellTab:   "Cell Value",
+	PreviewRowTab:    "Full Row (%d cols)",
+	PrettyFormatLbl:  "Format Path / JSON",
+	PrevRowBtn:       "← Prev",
+	NextRowBtn:       "Next →",
+	FocusVertexMenu:  "Focus Vertex in Graph (%s)",
+	ExploreVIDMenu:   "Explore VID in Graph (1-Hop Subgraph)",
 
 	ScalarResultTitle: "No Graph Objects in This Result (%d Scalar Rows)",
 	ScalarResultDesc:  "NebulaGraph only returns visualizable graph elements when a query yields vertex, edge, or path objects (e.g. MATCH p=... RETURN p, GET SUBGRAPH, or GO ... YIELD $^ AS src, edge AS e, $$ AS dst).",
@@ -391,7 +455,48 @@ var enStrings = Strings{
 	SaveToFileBtn:      "Save to File…",
 
 	ReadyStatus:  "Ready",
-	ShortcutHint: "⌘⏎ Run  •  ⌘T Tab  •  ⌘K Connect",
+	ShortcutHint: "⌘⏎ Run  •  ⌘J AI  •  ⌘T Tab  •  ⌘K Connect",
+
+	AITabTitle:        "✦ AI nGQL",
+	AIModelBtn:        "⚙ Model",
+	AINotConfigured:   "Model not configured",
+	AINotConfigTitle:  "Connect an AI Model",
+	AINotConfigDesc:   "Connect an AI model (OpenAI, DeepSeek, Qwen, Ollama, OpenRouter, etc.) to automatically explore your graph and generate verified nGQL.",
+	AIConfigNowBtn:    "Configure Model…",
+	AIPromptHint:      "Describe the graph query you want (e.g. find 2-hop friends of Tim Duncan older than 30)…",
+	AIIncludeEditor:   "Include editor context",
+	AIGenerateBtn:     "✦ Generate",
+	AIStopBtn:         "■ Stop",
+	AIExploringStatus: "Exploring graph & generating…",
+	AIQuickExamples:   "QUICK PROMPTS",
+	AITraceHeaderFmt:  "Exploration Steps (%d)",
+	AIThoughtLabel:    "Thinking",
+	AIToolLabel:       "Explore",
+	AIObsLabel:        "Result",
+	AIToolSchema:      "Inspect Schema",
+	AIToolSampleTag:   "Sample Vertices",
+	AIToolSampleEdge:  "Sample Edges",
+	AIToolVerifyQuery: "Verify Query",
+	AIFinalTitle:      "Generated nGQL",
+	AIVerifiedBadge:   "✓ Verified (%d rows)",
+	AILoadBtn:         "Load",
+	AILoadRunBtn:      "Load & Run",
+	AIReadOnlyNote:    "Read-only exploration • Data is never modified",
+	AIModalTitle:      "AI Model Connection",
+	AIModalSubtitle:   "Configure your AI model service to explore graph data and generate nGQL.",
+	AIPresetsHeader:   "QUICK PRESETS",
+	AIBaseURLLbl:      "API Base URL",
+	AIAPIKeyLbl:       "API Key (optional for local Ollama)",
+	AIModelNameLbl:    "Model",
+	AIMaxStepsLbl:     "Max Steps",
+	AITempLbl:         "Temperature",
+	AITimeoutLbl:      "Timeout (s)",
+	AITestConnBtn:     "Test Connection",
+	AITestingBtn:      "Testing…",
+	AIFetchModelsBtn:  "↻ Fetch Models",
+	AIFetchingBtn:     "Fetching…",
+	AIModelsCountFmt:  "%d models loaded",
+	AISelectModelLbl:  "Select from fetched models",
 }
 
 var zhStrings = Strings{
@@ -400,6 +505,8 @@ var zhStrings = Strings{
 
 	Sidebar:      "侧边栏",
 	Inspector:    "属性面板",
+	AIBtn:        "✦ AI",
+	AITip:        "打开 AI nGQL 助手 (⌘J)",
 	Disconnected: "未连接",
 	SpaceLabel:   "图空间:",
 	RefreshTip:   "刷新图空间 Schema",
@@ -414,10 +521,11 @@ var zhStrings = Strings{
 	SidebarTip:   "展开/收起左侧边栏 (⌘B)",
 	InspectorTip: "展开/收起右侧属性面板 (⌘I)",
 
-	SaveSnippetBtn: "★ 收藏语句",
-	ClearBtn:       "清空",
-	NewTabTip:      "新建查询标签页 (⌘T)",
-	EditorHint:     "在此输入 nGQL 语句…（⌘Enter / Ctrl+Enter 执行，Ctrl+Space 触发 Schema 自动补全）",
+	SaveSnippetBtn:    "★ 收藏语句",
+	ClearBtn:          "清空",
+	NewTabTip:         "新建查询标签页 (⌘T)",
+	EditorHint:        "在此输入 nGQL 语句…（⌘Enter 执行 • 输入 . / : 自动补全 • Ctrl+Space / ⌥/ 手动唤起）",
+	CompletionKeyHint: "↑↓ 选择  •  ⏎/⇥ 插入  •  Esc 关闭",
 
 	TabSchema:       "结构",
 	TabHistory:      "历史",
@@ -467,10 +575,18 @@ var zhStrings = Strings{
 	NoPlanDesc:      "在任意 nGQL 语句前加上 EXPLAIN 或 PROFILE 即可查看物理执行算子流水线。",
 	ExplainCurrBtn:  "查看当前语句 EXPLAIN",
 	PlanHeader:      "物理执行计划（共 %d 个算子）",
-	CopyCellMenu:    "复制单元格内容",
-	CopyRowMenu:     "复制整行 (TSV)",
-	FocusVertexMenu: "在图谱中聚焦顶点 (%s)",
-	ExploreVIDMenu:  "在图谱中探索此 VID (1 跳子图)",
+	CopyCellMenu:     "复制单元格内容",
+	CopyRowMenu:      "复制整行 (TSV)",
+	InspectCellMenu:  "放大查看完整内容",
+	InspectCellTip:   "放大查看完整单元格内容",
+	InspectRowBtn:    "放大查看行",
+	PreviewCellTab:   "当前单元格",
+	PreviewRowTab:    "整行字段 (%d 列)",
+	PrettyFormatLbl:  "格式化路径 / JSON",
+	PrevRowBtn:       "← 上一行",
+	NextRowBtn:       "下一行 →",
+	FocusVertexMenu:  "在图谱中聚焦顶点 (%s)",
+	ExploreVIDMenu:   "在图谱中探索此 VID (1 跳子图)",
 
 	ScalarResultTitle: "本次查询未包含图对象（返回 %d 行标量数据）",
 	ScalarResultDesc:  "NebulaGraph 仅在查询返回 vertex / edge / path 对象时可渲染图谱（例如 MATCH p=... RETURN p、GET SUBGRAPH 或 GO ... YIELD $^ AS src, edge AS e, $$ AS dst）。",
@@ -575,5 +691,46 @@ var zhStrings = Strings{
 	SaveToFileBtn:      "保存到文件…",
 
 	ReadyStatus:  "就绪",
-	ShortcutHint: "⌘⏎ 执行  •  ⌘T 新标签  •  ⌘K 连接",
+	ShortcutHint: "⌘⏎ 执行  •  ⌘J AI  •  ⌘T 新标签  •  ⌘K 连接",
+
+	AITabTitle:        "✦ AI 生成",
+	AIModelBtn:        "⚙ 模型配置",
+	AINotConfigured:   "未配置模型连接",
+	AINotConfigTitle:  "配置 AI 模型连接",
+	AINotConfigDesc:   "配置模型连接（支持 OpenAI、DeepSeek、通义千问、本地 Ollama、OpenRouter 等），即可自动探索图谱并生成经验证的 nGQL。",
+	AIConfigNowBtn:    "立即配置模型…",
+	AIPromptHint:      "用自然语言描述你想查询的图关系（例如：查找年龄大于 35 岁的球员之间的关注路径）…",
+	AIIncludeEditor:   "附带当前编辑器语句",
+	AIGenerateBtn:     "✦ 生成 nGQL",
+	AIStopBtn:         "■ 停止",
+	AIExploringStatus: "正在探索图谱并生成语句…",
+	AIQuickExamples:   "快捷示例提问",
+	AITraceHeaderFmt:  "探索过程 (%d)",
+	AIThoughtLabel:    "思路",
+	AIToolLabel:       "探索",
+	AIObsLabel:        "结果",
+	AIToolSchema:      "查看结构",
+	AIToolSampleTag:   "采样顶点",
+	AIToolSampleEdge:  "采样边",
+	AIToolVerifyQuery: "验证查询",
+	AIFinalTitle:      "生成的 nGQL",
+	AIVerifiedBadge:   "✓ 已验证 (%d 行)",
+	AILoadBtn:         "填入编辑器",
+	AILoadRunBtn:      "填入并执行",
+	AIReadOnlyNote:    "仅执行只读探索 • 不会修改图数据",
+	AIModalTitle:      "AI 模型连接配置",
+	AIModalSubtitle:   "配置 AI 模型服务，用于自动探索图数据并生成 nGQL 查询。",
+	AIPresetsHeader:   "快捷预设",
+	AIBaseURLLbl:      "模型接口地址",
+	AIAPIKeyLbl:       "API Key（本地 Ollama 可留空）",
+	AIModelNameLbl:    "模型名称",
+	AIMaxStepsLbl:     "最大探索步数",
+	AITempLbl:         "温度",
+	AITimeoutLbl:      "超时 (秒)",
+	AITestConnBtn:     "测试连接",
+	AITestingBtn:      "测试中…",
+	AIFetchModelsBtn:  "↻ 获取模型",
+	AIFetchingBtn:     "获取中…",
+	AIModelsCountFmt:  "已获取 %d 个模型",
+	AISelectModelLbl:  "从已获取的模型中选择",
 }

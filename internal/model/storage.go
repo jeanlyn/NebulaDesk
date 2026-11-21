@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -75,11 +76,55 @@ type SavedSnippet struct {
 	Description string `json:"description,omitempty"`
 }
 
-// AppConfig holds user-persisted connections, query history, snippets, and preferences.
+// AIModelConfig stores the user's LLM endpoint configuration for ReAct AI nGQL generation.
+type AIModelConfig struct {
+	Provider    string  `json:"provider,omitempty"`    // Preset name: OpenAI, DeepSeek, Qwen, Ollama, OpenRouter, Custom
+	BaseURL     string  `json:"base_url,omitempty"`    // OpenAI-compatible API base URL, e.g. https://api.openai.com/v1
+	APIKey      string  `json:"api_key,omitempty"`     // Bearer token (optional for local Ollama/vLLM)
+	Model       string  `json:"model,omitempty"`       // Model identifier, e.g. gpt-4o-mini, deepseek-chat
+	Temperature float64 `json:"temperature,omitempty"` // Sampling temperature (default 0.1)
+	MaxSteps    int     `json:"max_steps,omitempty"`   // Max ReAct iterations (default 6)
+	TimeoutSec  int     `json:"timeout_sec,omitempty"` // Per-request HTTP timeout in seconds (default 60)
+}
+
+// Configured reports whether the minimum required model endpoint fields are filled in.
+func (c AIModelConfig) Configured() bool {
+	return strings.TrimSpace(c.BaseURL) != "" && strings.TrimSpace(c.Model) != ""
+}
+
+// Normalized returns a copy with sane defaults filled in for zero numeric fields.
+func (c AIModelConfig) Normalized() AIModelConfig {
+	out := c
+	out.BaseURL = strings.TrimSpace(out.BaseURL)
+	out.APIKey = strings.TrimSpace(out.APIKey)
+	out.Model = strings.TrimSpace(out.Model)
+	if out.Provider == "" {
+		out.Provider = "OpenAI"
+	}
+	if out.MaxSteps <= 0 {
+		out.MaxSteps = 6
+	}
+	if out.MaxSteps > 15 {
+		out.MaxSteps = 15
+	}
+	if out.TimeoutSec <= 0 {
+		out.TimeoutSec = 60
+	}
+	if out.Temperature < 0 {
+		out.Temperature = 0
+	}
+	if out.Temperature > 2 {
+		out.Temperature = 2
+	}
+	return out
+}
+
+// AppConfig holds user-persisted connections, query history, snippets, AI settings, and preferences.
 type AppConfig struct {
 	Connections []ConnectionProfile `json:"connections"`
 	History     []QueryHistoryItem  `json:"history"`
 	Snippets    []SavedSnippet      `json:"snippets"`
+	AI          AIModelConfig       `json:"ai,omitempty"`
 	ThemeMode   string              `json:"theme_mode"` // "system", "dark", "light"
 	Language    string              `json:"language"`   // "en", "zh"
 	LastConnID  string              `json:"last_conn_id,omitempty"`
@@ -91,6 +136,12 @@ func DefaultConfig() *AppConfig {
 		ThemeMode:  "dark",
 		Language:   "en",
 		LastConnID: "demo-basketball",
+		AI: AIModelConfig{
+			Provider:    "OpenAI",
+			Temperature: 0.1,
+			MaxSteps:    6,
+			TimeoutSec:  60,
+		},
 		Connections: []ConnectionProfile{
 			{
 				ID:           "demo-basketball",

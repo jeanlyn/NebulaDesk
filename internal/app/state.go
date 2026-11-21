@@ -1,7 +1,10 @@
 package app
 
 import (
+	"bytes"
+	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -13,6 +16,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"nebula_client/internal/ai"
 	"nebula_client/internal/graphview"
 	"nebula_client/internal/i18n"
 	"nebula_client/internal/model"
@@ -48,6 +52,18 @@ type QueryTab struct {
 	cachedRowIdx    []int
 }
 
+// AIRunRecord stores one user prompt and its live ReAct exploration trace + generated nGQL.
+type AIRunRecord struct {
+	ID          string
+	Prompt      string
+	Space       string
+	Steps       []ai.TraceStep
+	Result      *ai.RunResult
+	Running     bool
+	TraceOpen   bool
+	CreatedAt   time.Time
+}
+
 // App is the top-level state for the NebulaDesk native desktop application.
 type App struct {
 	Win   *mygo.Window
@@ -68,12 +84,33 @@ type App struct {
 
 	// Layout state
 	SidebarTab     int // 0=Schema, 1=History, 2=Snippets
+	RightPanelTab  int // 0=Inspector, 1=AI nGQL ReAct Assistant
 	SidebarWidth   float32
 	EditorPercent  float32
 	InspectorWidth float32
 	ShowSidebar    bool
 	ShowInspector  bool
 	ExpandLimit    int // Max paths returned per interactive node expansion (default 50)
+
+	// AI ReAct nGQL Assistant state
+	AIAgent         *ai.Agent
+	AIPrompt        string
+	AIIncludeEditor bool
+	AIRunning       bool
+	AICancel        context.CancelFunc
+	AIRuns          []*AIRunRecord
+
+	// AI Model Settings modal state
+	AIModalOpen      bool
+	AIDraft          model.AIModelConfig
+	AIMaxStepsStr    string
+	AITempStr        string
+	AITimeoutStr     string
+	AITesting        bool
+	AITestMsg        string
+	AITestIsErr      bool
+	AIFetchingModels bool
+	AIFetchedModels  []string
 
 	// Schema tree open state
 	TagsSectionOpen    bool
@@ -105,6 +142,19 @@ type App struct {
 	ExportContent   string
 	ExportEditor    *editor.State
 
+	// Cell / Row Magnifier modal state
+	CellPreviewOpen   bool
+	CellPreviewRowPos int
+	CellPreviewRowNum int
+	CellPreviewColIdx int
+	CellPreviewCol    string
+	CellPreviewRaw    string
+	CellPreviewCols   []string
+	CellPreviewRow    []string
+	CellPreviewTab    int // 0=Cell Value, 1=Full Row
+	CellPreviewPretty bool
+	CellPreviewEditor *editor.State
+
 	// Status bar & notifications
 	StatusMsg   string
 	StatusIsErr bool
@@ -131,6 +181,9 @@ func NewApp(store *model.ConfigStore) *App {
 		ShowSidebar:        true,
 		ShowInspector:      true,
 		ExpandLimit:        50,
+		AIAgent:            ai.NewAgent(),
+		AIIncludeEditor:    true,
+		CellPreviewPretty:  true,
 		TagsSectionOpen:    true,
 		EdgesSectionOpen:   true,
 		IndexesSectionOpen: false,
@@ -210,13 +263,16 @@ func (a *App) NewTab(title, initialQuery string) *QueryTab {
 
 	ed := &editor.State{
 		Buffer:      buf,
-		Placeholder: "Write nGQL here… (⌘Enter / Ctrl+Enter to run, Ctrl+Space for schema autocomplete)",
+		Placeholder: "Write nGQL here… (⌘Enter / Ctrl+Enter to run, Ctrl+Space / ⌥/ for smart autocomplete)",
 		SoftWrap:    true,
 		TabSize:     2,
-		// Let Cmd+Enter bubble up to app shortcut for Run Query instead of inserting newline below
+		// Let Cmd+Enter bubble up to app shortcut for Run Query instead of inserting newline below;
+		// also add macOS-friendly Option+Esc / Option+/ completion triggers alongside Ctrl+Space.
 		Bindings: []editor.Binding{
 			{Mods: ui.Cmd, Key: ui.KeyEnter, Command: editor.NoCommand},
 			{Mods: ui.Ctrl, Key: ui.KeyEnter, Command: editor.NoCommand},
+			{Mods: ui.Alt, Key: ui.KeyEscape, Command: editor.ShowCompletions},
+			{Mods: ui.Alt, Key: ui.KeySlash, Command: editor.ShowCompletions},
 		},
 	}
 
@@ -239,17 +295,25 @@ func (a *App) NewTab(title, initialQuery string) *QueryTab {
 	tab.TableState.Selected = &tab.SelectedRow
 	tab.TableState.Sort = &tab.TableSort
 
-	// Hook schema-aware autocompletion & hover docs into the Zed-style editor
+	// Hook context- and schema-aware nGQL autocompletion & hover docs into the Zed-style editor
 	ed.OnCompletion = func(r editor.CompletionRequest) {
-		items := ngql.Completions(a.Schema)
+		items := ngql.Complete(ngql.CompletionContext{
+			Text:       buf.String(),
+			Offset:     r.Offset,
+			Prefix:     r.Prefix,
+			Explicit:   r.Explicit,
+			Schema:     a.Schema,
+			Spaces:     a.Spaces,
+			SampleVIDs: a.sampleVIDsForTab(tab),
+		})
 		ed.ShowCompletions(r.Offset-len(r.Prefix), items)
 	}
 	ed.OnHover = func(r editor.HoverRequest) {
-		word, start, end := wordAtOffset(buf.String(), r.Offset)
-		if doc, ok := ngql.HoverDoc(word, a.Schema); ok {
+		if doc, start, end, ok := ngql.HoverAt(buf.String(), r.Offset, a.Schema, a.Spaces); ok {
 			ed.ShowHover(start, end, doc, nil)
 		}
 	}
+	ed.RenderCompletions = a.renderNGQLCompletions
 
 	a.Tabs = append(a.Tabs, tab)
 	a.ActiveTab = len(a.Tabs) - 1
@@ -929,6 +993,413 @@ func (a *App) CycleTheme() {
 		a.Config.ThemeMode = "dark"
 	}
 	_ = a.Store.Save(a.Config)
+}
+
+// sampleVIDsForTab collects up to 30 vertex IDs from the tab's active graph canvas
+// (putting the currently selected vertex first) for VID autocompletion in FROM/TO/FETCH clauses.
+func (a *App) sampleVIDsForTab(tab *QueryTab) []string {
+	if tab == nil || tab.Graph == nil || tab.Graph.Graph == nil || len(tab.Graph.Graph.VertexOrder) == 0 {
+		return nil
+	}
+	const maxVIDs = 30
+	out := make([]string, 0, min(len(tab.Graph.Graph.VertexOrder), maxVIDs))
+	seen := make(map[string]bool, maxVIDs)
+	if tab.SelectedVertex != nil && tab.SelectedVertex.ID != "" {
+		out = append(out, tab.SelectedVertex.ID)
+		seen[tab.SelectedVertex.ID] = true
+	}
+	for _, id := range tab.Graph.Graph.VertexOrder {
+		if len(out) >= maxVIDs {
+			break
+		}
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+func (a *App) dispatchUI(fn func()) {
+	if fn == nil {
+		return
+	}
+	if a.Win != nil {
+		a.Win.Update(fn)
+	} else {
+		fn()
+	}
+}
+
+// OpenAIPanel reveals the right-hand panel switched to the AI ReAct nGQL Assistant tab.
+func (a *App) OpenAIPanel() {
+	a.ShowInspector = true
+	a.RightPanelTab = 1
+}
+
+// ToggleAIPanel opens the AI assistant panel, or hides the right panel if AI is already active.
+func (a *App) ToggleAIPanel() {
+	if a.ShowInspector && a.RightPanelTab == 1 {
+		a.ShowInspector = false
+		return
+	}
+	a.ShowInspector = true
+	a.RightPanelTab = 1
+}
+
+// OpenAIModal opens the AI Model Connection configuration dialog populated with the saved settings.
+func (a *App) OpenAIModal() {
+	cfg := a.Config.AI.Normalized()
+	a.AIDraft = cfg
+	a.AIMaxStepsStr = strconv.Itoa(cfg.MaxSteps)
+	a.AITempStr = strconv.FormatFloat(cfg.Temperature, 'f', 2, 64)
+	a.AITimeoutStr = strconv.Itoa(cfg.TimeoutSec)
+	a.AITestMsg = ""
+	a.AITestIsErr = false
+	a.AIModalOpen = true
+}
+
+// ApplyAIPreset fills the modal draft with a popular OpenAI-compatible provider preset.
+func (a *App) ApplyAIPreset(p ai.ProviderPreset) {
+	a.AIDraft.Provider = p.Name
+	a.AIDraft.BaseURL = p.BaseURL
+	a.AIDraft.Model = p.Model
+	a.AIFetchedModels = nil
+	a.AITestMsg = ""
+	a.AITestIsErr = false
+}
+
+// FetchAIModels queries GET /models on the drafted BaseURL to populate a selectable model list.
+func (a *App) FetchAIModels() {
+	if a.AIFetchingModels {
+		return
+	}
+	cfg := a.parsedAIDraft()
+	if cfg.BaseURL == "" {
+		a.AITestMsg = "API Base URL is required to fetch models."
+		a.AITestIsErr = true
+		return
+	}
+	a.AIFetchingModels = true
+	a.AITestMsg = ""
+	a.AITestIsErr = false
+
+	agent := a.AIAgent
+	if agent == nil {
+		agent = ai.NewAgent()
+		a.AIAgent = agent
+	}
+	a.RunAsync(func() func() {
+		models, err := agent.LLM.ListModels(context.Background(), cfg)
+		return func() {
+			a.AIFetchingModels = false
+			if err != nil {
+				a.AITestMsg = "Fetch models failed: " + err.Error()
+				a.AITestIsErr = true
+				return
+			}
+			a.AIFetchedModels = models
+			// Keep currently selected model if it exists in the fetched list; otherwise auto-pick the first one.
+			cur := strings.TrimSpace(a.AIDraft.Model)
+			found := false
+			for _, m := range models {
+				if m == cur {
+					found = true
+					break
+				}
+			}
+			if !found && len(models) > 0 {
+				a.AIDraft.Model = models[0]
+			}
+			a.AITestMsg = fmt.Sprintf(a.Tr().AIModelsCountFmt, len(models))
+			a.AITestIsErr = false
+		}
+	})
+}
+
+func (a *App) parsedAIDraft() model.AIModelConfig {
+	d := a.AIDraft
+	if n, err := strconv.Atoi(strings.TrimSpace(a.AIMaxStepsStr)); err == nil && n > 0 {
+		d.MaxSteps = n
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(a.AITempStr), 64); err == nil {
+		d.Temperature = f
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(a.AITimeoutStr)); err == nil && n > 0 {
+		d.TimeoutSec = n
+	}
+	return d.Normalized()
+}
+
+// SaveAIDraft persists the AI model connection settings to disk.
+func (a *App) SaveAIDraft() {
+	a.Config.AI = a.parsedAIDraft()
+	_ = a.Store.Save(a.Config)
+	a.AIModalOpen = false
+	a.ToastQueue = "AI model configuration saved"
+	a.setStatus("AI model ready: "+a.Config.AI.Model, false)
+}
+
+// TestAIConnection sends a lightweight ping to the drafted AI model endpoint.
+func (a *App) TestAIConnection() {
+	if a.AITesting {
+		return
+	}
+	cfg := a.parsedAIDraft()
+	if !cfg.Configured() {
+		a.AITestMsg = "Base URL and Model Name are required."
+		a.AITestIsErr = true
+		return
+	}
+	a.AITesting = true
+	a.AITestMsg = ""
+	a.AITestIsErr = false
+
+	agent := a.AIAgent
+	if agent == nil {
+		agent = ai.NewAgent()
+		a.AIAgent = agent
+	}
+	a.RunAsync(func() func() {
+		ms, reply, err := agent.LLM.TestConnection(context.Background(), cfg)
+		return func() {
+			a.AITesting = false
+			if err != nil {
+				a.AITestMsg = err.Error()
+				a.AITestIsErr = true
+				return
+			}
+			a.AITestMsg = fmt.Sprintf("Connected (%s • %.0f ms): %s", cfg.Model, ms, reply)
+			a.AITestIsErr = false
+		}
+	})
+}
+
+// StartAIGenerate kicks off an asynchronous ReAct graph exploration & nGQL generation run.
+func (a *App) StartAIGenerate() {
+	if a.AIRunning {
+		return
+	}
+	cfg := a.Config.AI.Normalized()
+	if !cfg.Configured() {
+		a.OpenAIModal()
+		a.setStatus("Please configure an AI model endpoint first", true)
+		return
+	}
+	prompt := strings.TrimSpace(a.AIPrompt)
+	if prompt == "" {
+		a.setStatus("Describe the graph query you want AI to generate", true)
+		return
+	}
+
+	tab := a.CurrentTab()
+	var currentQuery, lastErr string
+	if a.AIIncludeEditor && tab != nil {
+		currentQuery = a.ActiveQueryText(tab)
+		if tab.Result != nil && tab.Result.Error != "" {
+			lastErr = tab.Result.Error
+		}
+	}
+
+	run := &AIRunRecord{
+		ID:        fmt.Sprintf("ai-%d", time.Now().UnixNano()),
+		Prompt:    prompt,
+		Space:     a.CurrentSpace,
+		Running:   true,
+		TraceOpen: true,
+		CreatedAt: time.Now(),
+	}
+	a.AIRuns = append([]*AIRunRecord{run}, a.AIRuns...)
+	if len(a.AIRuns) > 20 {
+		a.AIRuns = a.AIRuns[:20]
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	a.AIRunning = true
+	a.AICancel = cancel
+	a.AIPrompt = ""
+	a.setStatus(a.Tr().AIExploringStatus, false)
+
+	agent := a.AIAgent
+	if agent == nil {
+		agent = ai.NewAgent()
+		a.AIAgent = agent
+	}
+	client := a.Client
+	schema := a.Schema
+	lang := a.Config.Language
+
+	a.RunAsync(func() func() {
+		res := agent.Run(ctx, ai.RunRequest{
+			Prompt:       prompt,
+			Config:       cfg,
+			Client:       client,
+			Schema:       schema,
+			CurrentQuery: currentQuery,
+			LastError:    lastErr,
+			Language:     lang,
+			OnStep: func(st ai.TraceStep) {
+				a.dispatchUI(func() {
+					run.Steps = append(run.Steps, st)
+				})
+			},
+		})
+		return func() {
+			cancel()
+			run.Running = false
+			run.Result = res
+			a.AIRunning = false
+			a.AICancel = nil
+			if res.Error != "" {
+				a.setStatus("AI generation failed: "+res.Error, true)
+			} else if res.Verified {
+				a.setStatus(fmt.Sprintf("AI generated & verified nGQL (%d rows)", res.VerifiedRows), false)
+			} else {
+				a.setStatus("AI generated nGQL ready to load", false)
+			}
+		}
+	})
+}
+
+// StopAIGenerate cancels the active AI ReAct run if one is in progress.
+func (a *App) StopAIGenerate() {
+	if a.AICancel != nil {
+		a.AICancel()
+	}
+}
+
+// ClearAIRuns resets the AI assistant conversation trace list.
+func (a *App) ClearAIRuns() {
+	if a.AIRunning {
+		a.StopAIGenerate()
+	}
+	a.AIRuns = nil
+}
+
+// OpenCellPreview opens the Cell / Row Magnifier modal for a specific table row & column.
+// If colIdx < 0, opens directly on the Full Row tab.
+func (a *App) OpenCellPreview(tab *QueryTab, filteredRowPos int, colIdx int) {
+	if tab == nil || tab.Result == nil {
+		return
+	}
+	rowIdx := tab.SortedFilteredRows()
+	if filteredRowPos < 0 || filteredRowPos >= len(rowIdx) {
+		return
+	}
+	origIdx := rowIdx[filteredRowPos]
+	if origIdx < 0 || origIdx >= len(tab.Result.Rows) {
+		return
+	}
+	row := tab.Result.Rows[origIdx]
+	a.CellPreviewRowPos = filteredRowPos
+	a.CellPreviewRowNum = origIdx + 1
+	a.CellPreviewCols = append([]string(nil), tab.Result.Columns...)
+	a.CellPreviewRow = append([]string(nil), row...)
+
+	if colIdx < 0 || colIdx >= len(tab.Result.Columns) {
+		a.CellPreviewTab = 1
+		colIdx = 0
+	} else {
+		a.CellPreviewTab = 0
+	}
+	a.CellPreviewColIdx = colIdx
+	if colIdx < len(tab.Result.Columns) {
+		a.CellPreviewCol = tab.Result.Columns[colIdx]
+	} else {
+		a.CellPreviewCol = ""
+	}
+	if colIdx < len(row) {
+		a.CellPreviewRaw = row[colIdx]
+	} else {
+		a.CellPreviewRaw = ""
+	}
+	a.refreshCellPreviewEditor()
+	a.CellPreviewOpen = true
+}
+
+// StepCellPreviewRow moves the Cell / Row Magnifier to the previous (-1) or next (+1) filtered row.
+func (a *App) StepCellPreviewRow(delta int) {
+	tab := a.CurrentTab()
+	if tab == nil || tab.Result == nil {
+		return
+	}
+	rowIdx := tab.SortedFilteredRows()
+	next := a.CellPreviewRowPos + delta
+	if next < 0 || next >= len(rowIdx) {
+		return
+	}
+	keepTab := a.CellPreviewTab
+	colIdx := a.CellPreviewColIdx
+	a.OpenCellPreview(tab, next, colIdx)
+	a.CellPreviewTab = keepTab
+}
+
+func (a *App) refreshCellPreviewEditor() {
+	content := a.CellPreviewRaw
+	lang := ""
+	if a.CellPreviewPretty {
+		content, lang = formatCellForPreview(a.CellPreviewRaw)
+	}
+	buf := editor.NewBuffer(content)
+	if lang == "JSON" {
+		if l := editor.LanguageNamed("JSON"); l != nil {
+			buf.SetLanguage(l)
+		}
+	} else if lang == "nGQL" {
+		buf.SetLanguage(ngql.Language())
+	}
+	a.CellPreviewEditor = &editor.State{
+		Buffer:      buf,
+		ReadOnly:    true,
+		SoftWrap:    true,
+		LineNumbers: editor.LineNumbersOff,
+	}
+}
+
+// formatCellForPreview pretty-prints valid JSON or formats NebulaGraph path / map strings onto readable lines.
+func formatCellForPreview(raw string) (formatted string, lang string) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return raw, ""
+	}
+	// 1. Pretty-print valid JSON objects/arrays
+	if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+		(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
+		var buf bytes.Buffer
+		if json.Indent(&buf, []byte(trimmed), "", "  ") == nil {
+			return buf.String(), "JSON"
+		}
+	}
+	// 2. Format NebulaGraph path strings like `(Tim Duncan :player)-[:follow@0]->(Tony Parker :player)`
+	if strings.Contains(trimmed, ")-") || strings.Contains(trimmed, ")<-") || strings.Contains(trimmed, "]->(") {
+		s := trimmed
+		s = strings.ReplaceAll(s, ")-", ")\n  -")
+		s = strings.ReplaceAll(s, ")<-", ")\n  <-")
+		s = strings.ReplaceAll(s, "]->(", "]\n  -> (")
+		s = strings.ReplaceAll(s, "-(", "\n  - (")
+		return s, "nGQL"
+	}
+	// 3. Format NebulaGraph property maps like `{age: 42, name: "Tim Duncan"}`
+	if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") && strings.Contains(trimmed, ", ") {
+		inner := strings.TrimSpace(trimmed[1 : len(trimmed)-1])
+		parts := strings.Split(inner, ", ")
+		if len(parts) >= 2 {
+			var b strings.Builder
+			b.WriteString("{\n")
+			for i, p := range parts {
+				b.WriteString("  ")
+				b.WriteString(strings.TrimSpace(p))
+				if i < len(parts)-1 {
+					b.WriteString(",")
+				}
+				b.WriteString("\n")
+			}
+			b.WriteString("}")
+			return b.String(), "nGQL"
+		}
+	}
+	return raw, ""
 }
 
 func wordAtOffset(src string, offset int) (word string, start, end int) {

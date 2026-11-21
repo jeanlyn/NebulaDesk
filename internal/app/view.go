@@ -36,7 +36,15 @@ func (a *App) View(c *ui.Context) {
 		a.ShowSidebar = !a.ShowSidebar
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyI) {
-		a.ShowInspector = !a.ShowInspector
+		if a.ShowInspector && a.RightPanelTab == 0 {
+			a.ShowInspector = false
+		} else {
+			a.ShowInspector = true
+			a.RightPanelTab = 0
+		}
+	}
+	if c.Shortcut(ui.Cmd, ui.KeyJ) {
+		a.ToggleAIPanel()
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyK) {
 		a.openConnModal()
@@ -63,8 +71,10 @@ func (a *App) View(c *ui.Context) {
 
 	// 4. Overlays / Modals
 	a.renderConnectionModal(c, t)
+	a.renderAIModal(c, t)
 	a.renderSaveSnippetModal(c, t)
 	a.renderExportModal(c, t)
+	a.renderCellPreviewModal(c, t)
 }
 
 func (a *App) applyTheme(c *ui.Context) {
@@ -197,13 +207,27 @@ func (a *App) renderTopToolbar(c *ui.Context, t *ui.Theme) {
 				a.RunCurrentQuery()
 			}
 
+			// AI nGQL Assistant toggle button
+			aiBtn := ui.Button(c, tr.AIBtn).Padding(4, 9).Tooltip(tr.AITip)
+			if a.ShowInspector && a.RightPanelTab == 1 {
+				aiBtn.Background(t.Accent.Alpha(0.20)).Border(1, t.Accent.Alpha(0.55))
+			}
+			if aiBtn.Clicked() {
+				a.ToggleAIPanel()
+			}
+
 			// Inspector toggle button
 			inspBtn := ui.Button(c, tr.Inspector).Padding(4, 8).Tooltip(tr.InspectorTip)
-			if a.ShowInspector {
+			if a.ShowInspector && a.RightPanelTab == 0 {
 				inspBtn.Background(t.Accent.Alpha(0.16)).Border(1, t.Accent.Alpha(0.4))
 			}
 			if inspBtn.Clicked() {
-				a.ShowInspector = !a.ShowInspector
+				if a.ShowInspector && a.RightPanelTab == 0 {
+					a.ShowInspector = false
+				} else {
+					a.ShowInspector = true
+					a.RightPanelTab = 0
+				}
 			}
 
 			// Theme switcher
@@ -227,14 +251,17 @@ func (a *App) renderTopToolbar(c *ui.Context, t *ui.Theme) {
 
 func (a *App) renderMainArea(c *ui.Context, t *ui.Theme) {
 	if a.ShowInspector {
-		// Split uses width of first pane; invert by computing right-hand inspector cleanly
+		rightW := a.InspectorWidth
+		if a.RightPanelTab == 1 && rightW < 370 {
+			rightW = 370
+		}
 		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
-			ui.Column(c).Grow(1).FillHeight().Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).MinWidth(320).FillHeight().Children(func() {
 				a.renderQueryWorkspace(c, t)
 			})
 			ui.Box(c).Width(1).FillHeight().Background(t.Border)
-			ui.Column(c).Width(a.InspectorWidth).FillHeight().Background(t.Surface).Children(func() {
-				a.renderInspector(c, t)
+			ui.Column(c).Width(rightW).Shrink(0).FillHeight().Background(t.Surface).Children(func() {
+				a.renderRightPanel(c, t)
 			})
 		})
 	} else {
@@ -342,6 +369,108 @@ func (a *App) renderEditorPane(c *ui.Context, t *ui.Theme) {
 	ui.Column(c).Fill().Background(t.Background).Children(func() {
 		editor.View(c.Key("ed-"+tab.ID), tab.Editor).Grow(1).FillWidth()
 	})
+}
+
+func (a *App) renderNGQLCompletions(c *ui.Context, panel ui.Element, m *editor.CompletionMenu) {
+	t := c.Theme()
+	ct := m.Theme()
+	font := m.Font()
+	lh := m.LineHeight()
+	items := m.Items()
+	if len(items) == 0 {
+		return
+	}
+
+	const maxRows = 120
+	panel.Column().
+		Background(t.Surface).
+		Border(1, t.Border).
+		Radius(t.Radius).
+		Shadow(0, 6, 20, 0, ui.RGBA(0, 0, 0, 0.24)).
+		Padding(t.Space(1)).
+		MinWidth(280).
+		MaxWidth(480)
+
+	panel.Children(func() {
+		ui.Scroll(c).Key("rows").MaxHeight(lh*8 + 16).Children(func() {
+			for i, it := range items {
+				if i >= maxRows {
+					break
+				}
+				selected := i == m.Selected()
+				row := m.Item(i).Row().
+					Justify(ui.Start).
+					Gap(t.Space(2)).
+					AlignItems(ui.Center).
+					Padding(t.Space(0.5), t.Space(1.5)).
+					Radius(t.Radius - 2).
+					Height(lh + 4)
+				if selected {
+					row.Background(t.Accent.Alpha(0.20))
+				}
+				badgeText, badgeColor := completionBadge(it.Kind, ct, t.Dark)
+				row.Children(func() {
+					ui.Box(c).Size(18, 18).Radius(4).
+						Background(badgeColor.Alpha(0.16)).
+						Center().
+						Children(func() {
+							ui.Text(c, badgeText).Font("monospace").FontSize(10.5).Bold().TextColor(badgeColor)
+						})
+					lbl := ui.Text(c, it.Label).Font(font.Family).FontSize(font.Size).TextColor(ct.Text).SingleLine().Shrink(1)
+					if selected {
+						lbl.Bold()
+					}
+					if it.Detail != "" {
+						ui.Text(c, it.Detail).FontSize(font.Size - 1.5).TextColor(t.TextMuted).SingleLine().Shrink(1).Grow(1).TextAlign(ui.End)
+					}
+				})
+			}
+		})
+
+		if s := m.Selected(); s >= 0 && s < len(items) && items[s].Documentation != "" {
+			ui.Box(c).Height(1).FillWidth().Background(t.Border).Margin(t.Space(1), 0)
+			ui.Text(c, items[s].Documentation).
+				FontSize(t.FontSize - 1.5).
+				TextColor(t.TextMuted).
+				MaxWidth(456).
+				Padding(t.Space(0.5), t.Space(1.5))
+		}
+
+		ui.Box(c).Height(1).FillWidth().Background(t.Border).Margin(t.Space(1), 0)
+		ui.Row(c).FillWidth().Padding(t.Space(0.25), t.Space(1.5)).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, a.Tr().CompletionKeyHint).FontSize(10.5).TextColor(t.TextMuted).SingleLine().Grow(1)
+			ui.Text(c, fmt.Sprintf("%d/%d", m.Selected()+1, len(items))).FontSize(10.5).TextColor(t.TextMuted).SingleLine()
+		})
+	})
+}
+
+func completionBadge(k editor.CompletionKind, ct *editor.Theme, dark bool) (string, ui.Color) {
+	switch k {
+	case editor.CompletionType:
+		return "T", ct.TokenColor(editor.TokenType)
+	case editor.CompletionModule:
+		if dark {
+			return "E", ui.Hex("#22d3ee")
+		}
+		return "E", ui.Hex("#0891b2")
+	case editor.CompletionField:
+		return "·", ct.TokenColor(editor.TokenProperty)
+	case editor.CompletionVariable:
+		return "v", ct.TokenColor(editor.TokenVariable)
+	case editor.CompletionFunction, editor.CompletionMethod:
+		return "ƒ", ct.TokenColor(editor.TokenFunction)
+	case editor.CompletionSnippet:
+		if dark {
+			return "⌘", ui.Hex("#c084fc")
+		}
+		return "⌘", ui.Hex("#9333ea")
+	case editor.CompletionConstant:
+		return "#", ct.TokenColor(editor.TokenConstant)
+	case editor.CompletionKeyword:
+		return "k", ct.TokenColor(editor.TokenKeyword)
+	default:
+		return "≡", ct.Text
+	}
 }
 
 func (a *App) renderStatusBar(c *ui.Context, t *ui.Theme) {

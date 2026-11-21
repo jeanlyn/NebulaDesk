@@ -41,10 +41,11 @@
 
 | Area | Capabilities | Inspired By |
 | --- | --- | --- |
-| **nGQL Code Editor** | Zed-style native GPU editor (`mygo/ui/editor`) with custom **nGQL syntax highlighting** (keywords, functions, types, `$^`/`$$`/`$-`/`$var`, `#`/`//`/`--`/`/* */` comments, backtick identifiers), **schema-aware autocompletion** (`Ctrl+Space`), query snippets, hover docs for Tags/Edges/keywords, diagnostics, multi-tab workspace, and `⌘⏎` / `Ctrl+⏎` execution (runs selection if highlighted). | Neo4j Browser, Memgraph Lab, Zed |
+| **nGQL Code Editor** | Zed-style native GPU editor (`mygo/ui/editor`) with custom **nGQL syntax highlighting** (keywords, functions, types, `$^`/`$$`/`$-`/`$var`, `#`/`//`/`--`/`/* */` comments, backtick identifiers), **context- & schema-aware autocompletion** (`.`/`:` auto-trigger, `Ctrl+Space` / `⌥/`, bound variable property chains like `v.tag.prop` & `$-.alias`, 45+ built-in functions, canvas VID suggestions), bracket auto-closing, rich hover docs, diagnostics, multi-tab workspace, and `⌘⏎` / `Ctrl+⏎` execution. | Neo4j Browser, Memgraph Lab, Zed |
+| **AI nGQL Assistant** | Built-in AI assistant (`⌘J`) that explores your active graph space in **read-only mode** (inspecting schema, sampling real vertices/edges, and validating candidate queries against NebulaGraph) before returning verified, visualization-ready nGQL with one-click **Load & Run**. Supports any OpenAI-compatible model endpoint (OpenAI, DeepSeek, Qwen, local Ollama, OpenRouter, etc.) with one-click **Fetch Models** & connection testing. | Cursor, DataGrip AI |
 | **Interactive Graph Visualization** | GPU-drawn 2D canvas with **4 layouts** (`Force-Directed` with 2D spatial-hash $O(N)$ repulsion & 18ms frame budget, `Circular`, `Hierarchical Tree`, `Grid`), smooth pan & zoom-to-cursor, drag-to-pin nodes, **curved Bézier parallel/bidirectional edges & ranked edges (`@rank`)**, self-loops, multi-tag vertex accent rings, 1-hop neighborhood spotlight dimming, quick node filter/search, Tag/Edge filter legend pills, live minimap, LOD for large graphs, and **SVG / JSON export**. | NebulaGraph Explorer, Neo4j Bloom, Memgraph Orb |
 | **Interactive Exploration** | **Double-click any node** (or right-click context menu / Inspector buttons) to run strictly `LIMIT`-bounded directional `MATCH` expansion (`Both`, `Out →`, `← In`, `2-Hop`, configurable `Limit: 30/50/100/200`) and smoothly merge newly discovered vertices & edges into the live canvas without stalling on super-nodes. Scalar table results can also jump straight into live subgraph exploration via column VID extraction or cell right-click. | NebulaGraph Explorer, G.V() |
-| **Multi-View Results** | Switch seamlessly between **Graph**, sortable/filterable **Table** (with cell context menu to copy or explore any VID in graph), formatted **JSON**, and **Physical Execution Plan** (`EXPLAIN` / `PROFILE`). Export tables to **CSV** or **JSON**. | NebulaGraph Studio, Neo4j Browser |
+| **Multi-View Results** | Switch seamlessly between **Graph**, sortable/filterable **Table** (with adaptive column widths, inline **cell & row magnifier** modal supporting formatted Path / JSON inspection, and cell context menu to copy or explore any VID in graph), formatted **JSON**, and **Physical Execution Plan** (`EXPLAIN` / `PROFILE`). Export tables to **CSV** or **JSON**. | NebulaGraph Studio, Neo4j Browser |
 | **Schema, History & Snippets** | Auto-refreshed Space switcher (`USE <space>`), expandable Schema tree (Tags, Edge Types, Properties with **inline golden index key indicators** and index tooltips, Indexes, `SHOW STATS` counts, one-click schema-aware sample queries), searchable query history, persistent favorite snippets (`~/.config/nebuladesk/config.json`), and **EN / 中文 multi-language switching**. | NebulaGraph Studio, Kuzu Explorer, G.V() |
 | **Connection Manager** | Manage multiple saved NebulaGraph v3 cluster profiles (single or comma-separated `host:port` seeds, username/password, default space, TLS toggle) alongside the built-in Demo engine. | TablePlus, G.V() |
 
@@ -113,7 +114,8 @@ NEBULADESK_SNAPSHOT_DIR=./snapshots CGO_ENABLED=0 go test -v ./internal/app
 | Shortcut | Action |
 | --- | --- |
 | `⌘Enter` / `Ctrl+Enter` | Execute current nGQL query (or highlighted selection) |
-| `Ctrl+Space` | Trigger schema-aware nGQL autocompletion |
+| `Ctrl+Space` / `⌥/` | Trigger context- & schema-aware nGQL autocompletion |
+| `⌘J` / `Ctrl+J` | Toggle AI nGQL Assistant panel |
 | `⌘T` / `Ctrl+T` | Open a new query tab |
 | `⌘W` / `Ctrl+W` | Close active query tab |
 | `⌘K` / `Ctrl+K` | Open Connection Manager |
@@ -137,7 +139,8 @@ NebulaDesk/
 └── internal/
     ├── model/                  # Graph primitives (Vertex/Edge/GraphData/Schema) & JSON config store
     ├── nebula/                 # nebula-go/v3 LiveClient, ResultSet parser, & built-in DemoClient
-    ├── ngql/                   # Custom nGQL syntax highlighter, schema completions & hover docs
+    ├── ai/                     # OpenAI-compatible model client, read-only guardrail & graph exploration agent
+    ├── ngql/                   # Custom nGQL syntax highlighter, context/schema completions & hover docs
     ├── i18n/                   # English & Simplified Chinese localization
     ├── graphview/              # Spatial-hash Force/Circular/Tree/Grid layouts, GPU canvas, SVG/JSON export
     └── app/                    # Workspace state, Toolbar, Sidebar, Results, Inspector, Modals, & headless UI tests
