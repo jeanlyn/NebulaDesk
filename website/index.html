@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NebulaDesk — Native NebulaGraph Desktop Client</title>
+<meta name="description" content="A lightweight, GPU-accelerated, pure-Go native desktop client for NebulaGraph v3. Zero Electron, zero WebView, ~15 MB single binary, instant startup, 0% idle CPU.">
+<meta property="og:title" content="NebulaDesk — Native NebulaGraph Desktop Client">
+<meta property="og:description" content="GPU-accelerated, pure-Go desktop client for NebulaGraph v3. ~15 MB, instant startup, AI nGQL assistant, interactive graph canvas.">
+<meta property="og:image" content="assets/preview.jpg">
+<meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="stars" aria-hidden="true"></canvas>
+<div class="bg-glow" aria-hidden="true"></div>
+
+<!-- ===== Nav ===== -->
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <img src="assets/icon.svg" alt="NebulaDesk icon" width="30" height="30">
+      <span>NebulaDesk</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#ai">AI Assistant</a>
+      <a href="#download">Download</a>
+    </nav>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/jeanlyn/NebulaDesk" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      <span>GitHub</span>
+    </a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge reveal">
+        <span class="dot"></span> v0.2.0 &middot; Open Source &middot; macOS / Windows / Linux
+      </div>
+      <h1 class="reveal">Nebula<span class="grad">Desk</span></h1>
+      <p class="kicker reveal">The native desktop client for NebulaGraph&nbsp;v3</p>
+      <p class="sub reveal">
+        Lightweight and GPU-accelerated, written in pure Go.
+        Zero Electron, zero WebView &mdash; a single <code>~15&nbsp;MB</code> binary that starts
+        instantly and idles at <code>0%</code> CPU.
+      </p>
+      <div class="hero-cta reveal">
+        <a class="btn btn-primary" href="https://github.com/jeanlyn/NebulaDesk/releases" target="_blank" rel="noopener">Download</a>
+        <a class="btn btn-ghost" href="https://github.com/jeanlyn/NebulaDesk" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+      <div class="hero-tags reveal">
+        <span class="tag">CGO_ENABLED=0</span>
+        <span class="tag">Built-in Demo Graph</span>
+        <span class="tag">AI nGQL Assistant</span>
+        <span class="tag">EN / 中文</span>
+      </div>
+      <figure class="hero-shot reveal">
+        <div class="shot-bar"><i></i><i></i><i></i><span>nebuladesk &mdash; basketballplayer</span></div>
+        <img src="assets/preview.jpg" alt="NebulaDesk showing a nGQL query and an interactive graph of the basketballplayer space" loading="eager">
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===== Why ===== -->
+  <section class="section" id="why">
+    <div class="container">
+      <p class="label reveal">Why NebulaDesk</p>
+      <h2 class="reveal">A graph workbench that feels <span class="grad">instant</span></h2>
+      <div class="grid grid-4">
+        <div class="card reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          </div>
+          <h3>True native, ultra-light</h3>
+          <p>No Electron, no Chromium, no JS runtime. Rendered on the GPU &mdash; Metal on macOS, Direct3D&nbsp;11 on Windows, OpenGL on Linux.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
+          </div>
+          <h3>Zero-friction demo</h3>
+          <p>Ships with an in-memory NebulaGraph simulator preloaded with <code>basketballplayer</code> &amp; <code>tech_ecosystem</code> spaces &mdash; try everything offline.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="4"/></svg>
+          </div>
+          <h3>Built for big graphs</h3>
+          <p>Strictly <code>LIMIT</code>-bounded expansion, O(N) spatial-hash force layout with an 18&nbsp;ms frame budget, edge culling and dense-graph LOD.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.9 5.7 3.9 9S14.5 18.4 12 21c-2.5-2.6-3.9-5.7-3.9-9S9.5 5.6 12 3z"/></svg>
+          </div>
+          <h3>Bilingual UI</h3>
+          <p>One-click English / 中文 switching in the toolbar, persisted across sessions. Comfortable for global teams.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Features ===== -->
+  <section class="section" id="features">
+    <div class="container">
+      <p class="label reveal">Features</p>
+      <h2 class="reveal">Everything between <span class="grad">query and insight</span></h2>
+      <div class="grid grid-3">
+        <div class="card feature reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg>
+          </div>
+          <h3>nGQL Code Editor</h3>
+          <p>Zed-style GPU editor with nGQL syntax highlighting, schema-aware autocompletion, hover docs, diagnostics and multi-tab workspaces. <code>⌘⏎</code> to run.</p>
+        </div>
+        <div class="card feature ai reveal" id="ai">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4L12 3z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg>
+          </div>
+          <h3>AI nGQL Assistant <span class="pill">⌘J</span></h3>
+          <p>Explores your live space in read-only mode &mdash; samples real vertices, validates candidate queries &mdash; then returns verified, visualization-ready nGQL with one-click Load&nbsp;&amp;&nbsp;Run. Works with any OpenAI-compatible endpoint: OpenAI, DeepSeek, Qwen, Ollama, OpenRouter.</p>
+        </div>
+        <div class="card feature reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7 7.5 10.5 16M17 7.5 13.5 16M7.5 6h9"/></svg>
+          </div>
+          <h3>Interactive Graph Canvas</h3>
+          <p>GPU-drawn 2D canvas with Force, Circular, Tree and Grid layouts, curved Bézier parallel edges, self-loops, neighborhood spotlight, minimap, LOD and SVG / JSON export.</p>
+        </div>
+        <div class="card feature reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </div>
+          <h3>Double-click Exploration</h3>
+          <p>Double-click any node to expand its neighborhood with directional, <code>LIMIT</code>-bounded <code>MATCH</code> queries &mdash; merged smoothly into the live canvas, even on super-nodes.</p>
+        </div>
+        <div class="card feature reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+          </div>
+          <h3>Multi-view Results</h3>
+          <p>Flip between Graph, sortable Table with cell magnifier, formatted JSON and <code>EXPLAIN</code> / <code>PROFILE</code> plans. Export to CSV or JSON in one click.</p>
+        </div>
+        <div class="card feature reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg>
+          </div>
+          <h3>Schema, History &amp; Snippets</h3>
+          <p>Auto-refreshed space switcher, expandable schema tree with index indicators, searchable history and persistent favorite snippets.</p>
+        </div>
+        <div class="card feature reveal">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M7 8h10v4a5 5 0 0 1-10 0V8zM12 17v5"/></svg>
+          </div>
+          <h3>Connection Manager</h3>
+          <p>Save multiple NebulaGraph v3 cluster profiles &mdash; multi-host seeds, TLS, per-connection default space &mdash; next to the built-in demo engine.</p>
+        </div>
+        <div class="card feature quote reveal">
+          <p class="big">&ldquo;Instant startup, ~15&nbsp;MB binary, 0% idle CPU &mdash; a graph client that behaves like a native app, because it is one.&rdquo;</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Download ===== -->
+  <section class="section" id="download">
+    <div class="container">
+      <p class="label reveal">Download</p>
+      <h2 class="reveal">Get NebulaDesk <span class="grad">v0.2.0</span></h2>
+      <p class="section-sub reveal">Pre-built binaries and installers on GitHub Releases.</p>
+      <div class="grid grid-3 dl">
+        <a class="card dl-card reveal" href="https://github.com/jeanlyn/NebulaDesk/releases" target="_blank" rel="noopener">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.54c-.03-2.9 2.37-4.29 2.48-4.36-1.35-1.98-3.46-2.25-4.21-2.28-1.79-.18-3.5 1.06-4.4 1.06-.91 0-2.31-1.03-3.8-1-1.95.03-3.75 1.14-4.76 2.88-2.03 3.52-.52 8.74 1.46 11.6.97 1.4 2.12 2.97 3.63 2.91 1.46-.06 2.01-.94 3.77-.94s2.26.94 3.8.91c1.57-.03 2.57-1.42 3.53-2.83 1.11-1.62 1.57-3.19 1.6-3.27-.04-.02-3.07-1.18-3.1-4.68zM14.16 4c.8-.97 1.34-2.32 1.19-3.66-1.15.05-2.55.77-3.38 1.74-.74.86-1.39 2.23-1.22 3.55 1.29.1 2.6-.65 3.41-1.63z"/></svg>
+          </div>
+          <h3>macOS</h3>
+          <p>Apple Silicon &amp; Intel &middot; <code>.dmg</code></p>
+          <span class="dl-link">Download &rarr;</span>
+        </a>
+        <a class="card dl-card reveal" href="https://github.com/jeanlyn/NebulaDesk/releases" target="_blank" rel="noopener">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.45 9.75 2.1v9.45H0V3.45zm10.95-1.5L24 0v11.55H10.95V1.95zM0 12.45h9.75v9.45L0 20.55v-8.1zm10.95 0H24V24l-13.05-1.95V12.45z"/></svg>
+          </div>
+          <h3>Windows</h3>
+          <p>x64 &middot; <code>.zip</code> / installer</p>
+          <span class="dl-link">Download &rarr;</span>
+        </a>
+        <a class="card dl-card reveal" href="https://github.com/jeanlyn/NebulaDesk/releases" target="_blank" rel="noopener">
+          <div class="card-ico">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-1.9 0-3.2 1.6-3.2 3.6 0 1.5.5 2.9 1.1 4-.9.3-1.7 1-2.2 1.9-.5-.2-1.1-.1-1.5.3-.5.5-.6 1.3-.3 2-.6.6-1 1.5-1 2.4 0 2 1.7 3.3 3.6 3.6.6.8 1.7 1.3 3.5 1.3s2.9-.5 3.5-1.3c1.9-.3 3.6-1.6 3.6-3.6 0-.9-.4-1.8-1-2.4.3-.7.2-1.5-.3-2-.4-.4-1-.5-1.5-.3-.5-.9-1.3-1.6-2.2-1.9.6-1.1 1.1-2.5 1.1-4C15.2 3.6 13.9 2 12 2z"/></svg>
+          </div>
+          <h3>Linux</h3>
+          <p>x64 &amp; ARM64 &middot; <code>.tar.gz</code></p>
+          <span class="dl-link">Download &rarr;</span>
+        </a>
+      </div>
+      <div class="note reveal">
+        <strong>macOS Gatekeeper:</strong> the app isn&rsquo;t notarized yet. After dragging to Applications, run
+        <code>xattr -cr /Applications/NebulaDesk.app</code> &mdash; or allow it via
+        System&nbsp;Settings&nbsp;&rarr;&nbsp;Privacy&nbsp;&amp;&nbsp;Security&nbsp;&rarr;&nbsp;<em>Open Anyway</em>.
+        On Windows SmartScreen, choose <em>More info &rarr; Run anyway</em>.
+      </div>
+      <div class="note build reveal">
+        <strong>Build from source:</strong> needs only Go &mdash; no C compiler, no Node.js.
+        <code>CGO_ENABLED=0 go build -ldflags="-s -w" -o nebuladesk .</code>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Footer ===== -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <img src="assets/icon.svg" alt="" width="24" height="24">
+      <span>NebulaDesk</span>
+    </div>
+    <p class="footer-tag">Built with MyGo Native UI &amp; nebula-go/v3 &middot; &copy; 2026 jeanlyn</p>
+    <div class="footer-links">
+      <a href="https://github.com/jeanlyn/NebulaDesk" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/jeanlyn/NebulaDesk/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://www.nebula-graph.io/" target="_blank" rel="noopener">NebulaGraph</a>
+    </div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
